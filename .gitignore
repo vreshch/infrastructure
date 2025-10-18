@@ -1,0 +1,56 @@
+# Terraform
+*.tfvars
+!terraform.example.tfvars
+!*.example.tfvars
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Terraform Cloud
+versions.tf.original
+
+# SSH Keys
+*.pem
+*.key
+id_rsa*
+deploy_rsa*
+
+# Secrets and Environment Files
+.env
+.env.*
+!.env.example
+*.secret
+secrets.yml
+
+# OS Files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Logs
+*.log
+logs/
+
+# Backups
+*.backup
+*.bak
+backend-config.tmp
+example/
+tasks.md
