@@ -1,31 +1,32 @@
 # Infrastructure as Code - Docker Swarm on Hetzner Cloud
 
-[![Terraform](https://img.shields.io/badge/Terraform-1.5+-purple.svg)](https://www.terraform.io/)
+[![Terraform](https://img.shields.io/badge/Terraform-1.12+-purple.svg)](https://www.terraform.io/)
 [![Docker Swarm](https://img.shields.io/badge/Docker-Swarm-blue.svg)](https://docs.docker.com/engine/swarm/)
 [![Hetzner Cloud](https://img.shields.io/badge/Hetzner-Cloud-red.svg)](https://www.hetzner.com/cloud)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-> **Production-ready Docker Swarm infrastructure on Hetzner Cloud, deployed automatically via GitHub Actions. Zero local setup required.**
+> **Production-ready Docker Swarm infrastructure on Hetzner Cloud with automated deployment. Supports both local Terraform and CI/CD workflows.**
 
 ## ✨ Features
 
-- 🚀 **Automated Deployment** - GitHub Actions handles everything
+- 🚀 **Automated Deployment** - Deploy via scripts or integrate with GitHub Actions
 - 🌍 **Multi-Environment** - Dev, staging, and production support
-- 🔒 **Secure by Default** - SSL certificates, firewall rules, and encrypted secrets
+- 🔒 **Secure by Default** - SSL certificates, firewall rules, and password protection
 - 📊 **Built-in Monitoring** - Traefik dashboard, Swarmpit UI, and Dozzle logs
-- 💰 **Cost-Effective** - Start from €9/month, scale as needed
-- 🔧 **Zero Local Setup** - No Terraform installation required
+- 💰 **Cost-Effective** - Start from €8/month, scale as needed
+- 🔧 **Interactive Setup** - Guided configuration with validation
+- 🛠️ **Utility Scripts** - SSH key generation, password hashing, config validation
 
 ## 🏗️ Architecture
 
 ```
-GitHub Actions → Terraform → Hetzner Cloud
-                    ↓
-    ┌───────────────┼───────────────┐
-    │               │               │
-Development    Staging        Production
-(CX22 4GB)     (CX32 8GB)     (CX42 16GB)
-€8/month       €17/month      €33/month
+Local/CI → Terraform → Hetzner Cloud
+              ↓
+  ┌───────────┼───────────────┐
+  │           │               │
+Development Staging      Production
+(CX22 4GB)  (CX32 8GB)   (CX42 16GB)
+€8/month    €17/month    €33/month
 ```
 
 **Included Services:**
@@ -34,104 +35,110 @@ Development    Staging        Production
 - **Dozzle** - Real-time container log viewer
 - **Automatic DNS** - Managed via Hetzner DNS API
 
-### 📋 Prerequisites
+## � Quick Start
 
-Before you begin, ensure you have:
+### Prerequisites
 
-- GitHub account
 - [Hetzner Cloud](https://www.hetzner.com/cloud) account with API token
-- [Hetzner DNS](https://dns.hetzner.com/) account with API token
-- Two domains registered (one for infrastructure, one for applications)
+- [Hetzner DNS](https://dns.hetzner.com/) account with API token  
+- Domain registered and configured in Hetzner DNS
+- Terraform >= 1.12 (for local deployment)
 
-### ⚙️ Installation
+### Installation
 
 1. **Clone this repository**
 
    ```bash
-   git clone https://github.com/vreshch/infrastructure.git
+   git clone https://github.com/YOUR_USERNAME/infrastructure.git
    cd infrastructure
    ```
 
-2. **Configure GitHub Secrets**
-
-   Go to your repository settings → Secrets and variables → Actions, and add:
-
-   ```
-   HETZNER_CLOUD_TOKEN       # Your Hetzner Cloud API token
-   HETZNER_DNS_TOKEN         # Your Hetzner DNS API token
-   HETZNER_DNS_ZONE_ID_INFRA # DNS Zone ID for infrastructure domain
-   SSH_PUBLIC_KEY            # Your SSH public key
-   SSH_PRIVATE_KEY           # Your SSH private key
-   ADMIN_PASSWORD_HASH       # Bcrypt hash for admin password
-   ```
-
-3. **Create environment configuration**
+2. **Generate SSH keys and password hash**
 
    ```bash
-   cp configs/example.tfvars configs/dev.tfvars
+   # Generate SSH keys for server access
+   ./scripts/utils/generate-ssh-keys.sh deploy ed25519
+   
+   # Generate admin password hash for Traefik/Swarmpit
+   ./scripts/utils/generate-password.sh admin
    ```
 
-   Edit `configs/dev.tfvars` with your settings:
-
-   ```hcl
-   environment           = "dev"
-   server_type           = "cx22"
-   infrastructure_domain = "infra.yourdomain.com"
-   admin_email           = "admin@yourdomain.com"
-   ```
-
-4. **Deploy via GitHub Actions**
+3. **Setup environment configuration (Interactive)**
 
    ```bash
-   git checkout -b dev
-   git add configs/dev.tfvars
-   git commit -m "Add dev environment configuration"
-   git push origin dev
+   # Interactive mode - prompts for all values
+   ./scripts/setup-env.sh dev
+   
+   # Or use template mode
+   ./scripts/setup-env.sh dev --from-template
+   # Then edit: nano terraform/terraform.dev.tfvars
    ```
 
-   GitHub Actions will automatically deploy your infrastructure!
+4. **Validate configuration**
 
-5. **Access your infrastructure**
+   ```bash
+   ./scripts/utils/validate-config.sh terraform/terraform.dev.tfvars
+   ```
 
-   After deployment completes (5-10 minutes), access your management tools:
+5. **Deploy infrastructure**
 
-   - **Traefik Dashboard**: `https://admin.dev.infra.yourdomain.com`
-   - **Swarmpit UI**: `https://swarmpit.dev.infra.yourdomain.com`
-   - **Dozzle Logs**: `https://logs.dev.infra.yourdomain.com`
+   ```bash
+   # With local backend
+   ./scripts/deploy-env.sh dev apply --local
+   
+   # Or with Terraform Cloud (configure versions.tf first)
+   ./scripts/deploy-env.sh dev apply
+   ```
+
+6. **Access your services**
+
+   After deployment (5-10 minutes), access your management tools:
+
+   - **Traefik Dashboard**: `https://admin.yourdomain.com`
+   - **Swarmpit UI**: `https://swarmpit.yourdomain.com`
+   - **Dozzle Logs**: `https://logs.yourdomain.com`
+
+   Login credentials: `admin` / `<your-password>`
 
 ## 📁 Repository Structure
 
 ```
 .
-├── .github/
-│   └── workflows/              # GitHub Actions workflows
-│       ├── deploy.yml          # Deploy infrastructure
-│       ├── plan.yml            # Preview changes
-│       └── destroy.yml         # Destroy infrastructure
-├── terraform/                  # Terraform configuration
+├── terraform/                  # Terraform infrastructure code
 │   ├── main.tf                 # Main infrastructure definition
-│   ├── variables.tf            # Variable definitions
+│   ├── variables.tf            # Variable definitions with validation
 │   ├── outputs.tf              # Output definitions
+│   ├── versions.tf             # Provider and backend configuration
 │   └── modules/                # Reusable modules
-│       ├── swarm-node/         # Docker Swarm node configuration
-│       └── dns-records/        # DNS record management
+│       ├── compute/            # Server provisioning module
+│       │   ├── main.tf
+│       │   ├── variables.tf
+│       │   ├── outputs.tf
+│       │   └── scripts/        # Server initialization scripts
+│       │       ├── init-docker.sh
+│       │       ├── init-docker-swarm.sh
+│       │       └── deploy-services.sh
+│       └── dns/                # DNS management module
+│           ├── main.tf
+│           ├── variables.tf
+│           └── outputs.tf
 ├── configs/                    # Environment configurations
-│   ├── example.tfvars          # Configuration template
-│   ├── dev.tfvars              # Development environment
-│   ├── staging.tfvars          # Staging environment
-│   └── prod.tfvars             # Production environment
+│   ├── template.tfvars         # Master configuration template
+│   ├── dev.example.tfvars      # Development environment template
+│   ├── prod.example.tfvars     # Production environment template
+│   └── terraform.example.tfvars # Legacy template
 ├── scripts/                    # Automation scripts
-│   ├── setup.sh                # Environment setup
-│   ├── deploy.sh               # Deployment automation
+│   ├── setup-env.sh            # Interactive environment setup
+│   ├── deploy-env.sh           # Multi-environment deployment
 │   └── utils/                  # Utility scripts
 │       ├── generate-ssh-keys.sh    # SSH key generation
-│       └── generate-password.sh    # Password hash generation
+│       ├── generate-password.sh    # Password hash generation
+│       └── validate-config.sh      # Configuration validation
 ├── docs/                       # Documentation
-│   ├── README.md               # Documentation index
 │   ├── quickstart.md           # 5-minute setup guide
-│   ├── requirements.md         # Detailed requirements
-│   ├── github-actions.md       # GitHub Actions setup
-│   └── manual-deploy.md        # Manual deployment guide
+│   ├── configuration.md        # Configuration reference
+│   ├── deployment.md           # Deployment guide
+│   └── troubleshooting.md      # Common issues and solutions
 └── README.md                   # This file
 ```
 
@@ -140,258 +147,264 @@ Before you begin, ensure you have:
 ### 🚀 Deploy New Environment
 
 ```bash
-# Create configuration
-cp configs/dev.tfvars configs/staging.tfvars
-vim configs/staging.tfvars
+# Create configuration interactively
+./scripts/setup-env.sh staging
 
-# Deploy via branch
-git checkout -b staging
-git add configs/staging.tfvars
-git commit -m "Add staging environment"
-git push origin staging
+# Or copy and edit template
+cp configs/prod.example.tfvars terraform/terraform.prod.tfvars
+nano terraform/terraform.prod.tfvars
+
+# Validate configuration
+./scripts/utils/validate-config.sh terraform/terraform.prod.tfvars
+
+# Deploy
+./scripts/deploy-env.sh prod apply --local
 ```
 
 ### 🔄 Update Infrastructure
 
 ```bash
 # Modify configuration
-vim configs/prod.tfvars
+nano terraform/terraform.prod.tfvars
 
-# Commit and push
-git add configs/prod.tfvars
-git commit -m "Update production server size"
-git push origin main
+# Preview changes
+./scripts/deploy-env.sh prod plan --local
+
+# Apply changes
+./scripts/deploy-env.sh prod apply --local
 ```
 
 ### 🗑️ Destroy Environment
 
-Use the GitHub Actions UI:
-1. Go to **Actions** → **Destroy Infrastructure**
-2. Click **Run workflow**
-3. Select the environment to destroy
-4. Type `destroy` to confirm
+```bash
+# Destroy infrastructure (requires confirmation)
+./scripts/deploy-env.sh dev destroy --local
+```
 
-## 🛠️ Manual Deployment (Local Terraform)
-
-For local development and debugging, you can deploy infrastructure manually using Terraform. This repository includes automation scripts to simplify the process.
-
-### 🚀 Quick Start with Automation Scripts
+### 📊 View Outputs
 
 ```bash
-# 1. Setup environment configuration
-./scripts/setup.sh dev  # Creates config from template
-
-# 2. Edit configuration with your values
-nano configs/dev.tfvars
-
-# 3. Deploy using automation script
-./scripts/deploy.sh dev plan   # Preview changes
-./scripts/deploy.sh dev apply  # Deploy infrastructure
-./scripts/deploy.sh dev output # View outputs
+# View deployment information
+./scripts/deploy-env.sh dev output
 ```
-
-### 💻 Manual Terraform Commands
-
-```bash
-cd terraform/
-
-# Initialize and deploy
-terraform init
-terraform plan -var-file="../configs/dev.tfvars"
-terraform apply -var-file="../configs/dev.tfvars"
-
-# View deployment info
-terraform output
-```
-
-### 📋 Required Configuration
-
-Create `configs/dev.tfvars` with your settings:
-
-```hcl
-# Domain & DNS
-domain_name         = "dev.yourdomain.com"
-hetzner_dns_zone_id = "your-zone-id"
-hetzner_dns_token   = "your-dns-token"
-
-# Cloud & Server
-hetzner_token = "your-cloud-token"
-server_type   = "cx22"
-environment   = "development"
-
-# SSH Keys
-ssh_public_key  = "ssh-rsa AAAAB3NzaC1yc2E..."
-ssh_private_key = "-----BEGIN OPENSSH PRIVATE KEY-----\n..."
-
-# Services
-admin_password_hash = "base64-htpasswd-hash"
-traefik_host       = "traefik.dev.yourdomain.com"
-swarmpit_host      = "swarmpit.dev.yourdomain.com"
-dozzle_host        = "logs.dev.yourdomain.com"
-traefik_acme_email = "admin@yourdomain.com"
-```
-
-### 🔐 Generate Credentials
-
-```bash
-# Admin password hash (for Traefik basic auth)
-./scripts/utils/generate-password.sh yourpassword
-
-# Or manually:
-htpasswd -nbB admin yourpassword | cut -d: -f2 | base64 -w0
-
-# SSH keys for server access
-./scripts/utils/generate-ssh-keys.sh
-
-# Or manually:
-ssh-keygen -t rsa -b 4096 -f ~/.ssh/deploy_rsa
-cat ~/.ssh/deploy_rsa.pub     # Public key
-cat ~/.ssh/deploy_rsa          # Private key
-```
-
-### 🌐 Multi-Environment Management
-
-```bash
-# Development
-./scripts/deploy.sh dev apply
-
-# Staging
-./scripts/deploy.sh staging apply
-
-# Production (requires confirmation)
-./scripts/deploy.sh prod apply
-```
-
-### 🗑️ Destroy Infrastructure
-
-```bash
-# Using automation script
-./scripts/deploy.sh dev destroy
-
-# Or manually
-cd terraform/
-terraform destroy -var-file="../configs/dev.tfvars"
-```
-
-### 📦 Included Scripts
-
-This repository includes the following automation scripts:
-
-- `scripts/setup.sh` - Environment setup automation
-- `scripts/deploy.sh` - Deployment automation with safety checks
-- `scripts/utils/generate-ssh-keys.sh` - SSH key pair generation
-- `scripts/utils/generate-password.sh` - Password hash generation
-- `configs/example.tfvars` - Configuration template
-
-### 🔧 Troubleshooting
-
-```bash
-# Terraform state issues
-cd terraform/
-rm -rf .terraform/ && terraform init
-
-# Check DNS resolution
-dig +short dev.yourdomain.com
-
-# Check SSL certificate generation (wait 5-10 minutes)
-ssh root@dev.yourdomain.com
-docker logs traefik
-
-# View all container logs
-docker service logs <service-name>
-```
-
-## Pricing
-
-| Environment | Server Type | vCPU | RAM   | Storage | Monthly Cost |
-|-------------|-------------|------|-------|---------|--------------|
-| Development | CX23        | 2    | 4 GB  | 40 GB   | €3.49        |
-| Staging     | CX32        | 4    | 8 GB  | 80 GB   | €5.49        |
-| Production  | CX43        | 8    | 16 GB | 160 GB  | €9.49        |
-
-**Additional costs:**
-- DNS Zones: free of charge
-- Backups: 20% of server price (optional)
-
-
-💡 **Cost savings tip**: Destroy development environments when not in use!
-
-
 
 ## 🛠️ Configuration
 
-### 📝 Environment Variables
+### 📝 Required Configuration Values
 
-Each environment is configured via `.tfvars` files in the `configs/` directory:
+Each environment requires a configuration file with these values:
 
 ```hcl
-# Required
-environment           = "dev"           # Environment name
-server_type           = "cx22"          # Hetzner server type
-infrastructure_domain = "infra.io"      # Domain for management tools
+# Hetzner Credentials
+hetzner_token       = "your-cloud-api-token"
+hetzner_dns_token   = "your-dns-api-token"
+hetzner_dns_zone_id = "your-zone-id"
 
-# Optional
-location              = "nbg1"          # Hetzner datacenter location
-admin_email           = "admin@myapp.io" # Email for SSL certificates
-enable_backups        = false           # Enable automated backups
+# Domain Configuration
+domain_name         = "yourdomain.com"
+traefik_host        = "admin.yourdomain.com"
+swarmpit_host       = "swarmpit.yourdomain.com"
+dozzle_host         = "logs.yourdomain.com"
+traefik_acme_email  = "admin@yourdomain.com"
+
+# Server Configuration
+server_name = "my-server"
+server_type = "cx22"
+location    = "nbg1"
+environment = "development"
+
+# SSH Keys
+ssh_public_key  = "ssh-ed25519 AAAAC3..."
+ssh_private_key = "-----BEGIN OPENSSH PRIVATE KEY-----\n..."
+
+# Authentication
+admin_password_hash = "admin:$2y$05$..."
 ```
+
+See [docs/configuration.md](docs/configuration.md) for detailed explanations of all variables.
 
 ### 💻 Supported Server Types
 
-| Type  | vCPU | RAM   | Storage | Price/month |
-|-------|------|-------|---------|-------------|
-| CX22  | 2    | 4 GB  | 40 GB   | €8          |
-| CX32  | 4    | 8 GB  | 80 GB   | €17         |
-| CX42  | 8    | 16 GB | 160 GB  | €33         |
-| CX52  | 16   | 32 GB | 320 GB  | €65         |
+| Type  | vCPU | RAM   | Storage | Price/month | Recommended For |
+|-------|------|-------|---------|-------------|-----------------|
+| CX22  | 2    | 4 GB  | 40 GB   | €8          | Development     |
+| CX32  | 4    | 8 GB  | 80 GB   | €17         | Staging         |
+| CX42  | 8    | 16 GB | 160 GB  | €33         | Production      |
+| CX52  | 16   | 32 GB | 320 GB  | €65         | High Traffic    |
 
-## 📊 Monitoring & Management
+**Additional costs:**
+- DNS Zones: Free
+- Snapshots: €0.01/GB per month (optional)
+- Backups: 20% of server price (optional)
+
+💡 **Tip**: Start with CX22 for development and scale up as needed.
+
+## � Monitoring & Management
 
 ### 🛠️ Built-in Tools
 
-- **Traefik Dashboard** (`admin.{env}.{infra-domain}`)
-  - View routing rules
-  - Monitor SSL certificates
-  - Check service health
+- **Traefik Dashboard** - View routing rules, SSL certificates, and service health
+- **Swarmpit** - Manage Docker services, view logs, monitor resources
+- **Dozzle** - Real-time container log viewer with search and filtering
 
-- **Swarmpit** (`swarmpit.{env}.{infra-domain}`)
-  - Manage Docker services
-  - View container logs
-  - Monitor resource usage
-  - Deploy new stacks
+All tools are accessible via your configured hostnames with basic authentication.
 
-- **Dozzle** (`logs.{env}.{infra-domain}`)
-  - Real-time container logs
-  - Multi-container log streaming
-  - Search and filter logs
-
-### ⚡ GitHub Actions Workflows
-
-- **Deploy** - Triggered on push to environment branches
-- **Plan** - Preview infrastructure changes
-- **Destroy** - Safely destroy infrastructure (manual trigger)
-
-## 🔒 Security
+## �🔒 Security
 
 - **Firewall**: Only ports 80, 443, and 22 exposed
 - **SSL/TLS**: Automatic certificates via Let's Encrypt
-- **Authentication**: Admin tools protected with basic auth
-- **SSH**: Key-based authentication only
-- **Secrets**: Managed via GitHub Secrets (encrypted)
+- **Authentication**: Admin tools protected with bcrypt password hashing
+- **SSH**: Key-based authentication only (password auth disabled)
+- **Secrets**: Never committed to Git (.gitignore configured)
+- **Validation**: Built-in configuration validation before deployment
+
+### Security Best Practices
+
+- Generate unique SSH keys for each environment
+- Use strong passwords (12+ characters)
+- Rotate credentials regularly
+- Enable MFA on Hetzner account
+- Review firewall rules periodically
+- Keep server software updated
+
+See [docs/configuration.md](docs/configuration.md) for detailed security recommendations.
 
 ## 📝 Documentation
 
-Detailed documentation is available in the `docs/` directory:
+Comprehensive documentation is available in the `docs/` directory:
 
-- **[README.md](docs/README.md)** - Documentation index
-- **[quickstart.md](docs/quickstart.md)** - 5-minute setup guide
-- **[requirements.md](docs/requirements.md)** - Architecture overview and requirements
-- **[github-actions.md](docs/github-actions.md)** - Complete GitHub Actions setup
-- **[manual-deploy.md](docs/manual-deploy.md)** - Manual deployment guide
+- **[quickstart.md](docs/quickstart.md)** - Get started in 5 minutes
+- **[configuration.md](docs/configuration.md)** - Complete configuration reference
+- **[deployment.md](docs/deployment.md)** - Deployment options and workflows
+- **[troubleshooting.md](docs/troubleshooting.md)** - Common issues and solutions
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**Configuration validation fails**
+```bash
+# Re-run validation with detailed output
+./scripts/utils/validate-config.sh terraform/terraform.dev.tfvars
+
+# Check file permissions
+chmod 600 terraform/terraform.dev.tfvars
+```
+
+**Terraform init fails**
+```bash
+cd terraform/
+rm -rf .terraform/ .terraform.lock.hcl
+terraform init
+```
+
+**DNS not resolving**
+```bash
+# Check DNS records
+dig +short yourdomain.com
+
+# Verify Hetzner DNS zone ID
+# Login to https://dns.hetzner.com/ and check zone ID
+```
+
+**SSL certificates not generating**
+```bash
+# SSH to server and check Traefik logs
+ssh -i ~/.ssh/deploy_ed25519 root@YOUR_SERVER_IP
+docker service logs traefik
+
+# Common causes:
+# - DNS not propagated (wait 5-10 minutes)
+# - Port 80/443 not accessible
+# - Invalid email address
+```
+
+**Services not accessible**
+```bash
+# Check service status
+ssh -i ~/.ssh/deploy_ed25519 root@YOUR_SERVER_IP
+docker service ls
+docker service ps traefik swarmpit dozzle
+
+# View logs
+docker service logs <service-name>
+```
+
+For more detailed troubleshooting, see [docs/troubleshooting.md](docs/troubleshooting.md).
+
+## 🚀 Advanced Usage
+
+### Using Terraform Cloud Backend
+
+1. Update `terraform/versions.tf` to use Terraform Cloud:
+```hcl
+terraform {
+  cloud {
+    organization = "YOUR_ORGANIZATION"
+    workspaces {
+      name = "project-dev"
+    }
+  }
+}
+```
+
+2. Deploy without `--local` flag:
+```bash
+./scripts/deploy-env.sh dev apply
+```
+
+### Manual Terraform Commands
+
+```bash
+cd terraform/
+
+# Initialize
+terraform init
+
+# Plan with specific var file
+terraform plan -var-file="terraform.dev.tfvars"
+
+# Apply changes
+terraform apply -var-file="terraform.dev.tfvars"
+
+# View outputs
+terraform output
+
+# Destroy infrastructure
+terraform destroy -var-file="terraform.dev.tfvars"
+```
+
+### Multi-Environment Management
+
+Manage multiple environments simultaneously:
+
+```bash
+# Setup all environments
+./scripts/setup-env.sh dev
+./scripts/setup-env.sh staging
+./scripts/setup-env.sh prod
+
+# Deploy all environments
+./scripts/deploy-env.sh dev apply --local
+./scripts/deploy-env.sh staging apply --local
+./scripts/deploy-env.sh prod apply
+
+# View all environment outputs
+for env in dev staging prod; do
+  echo "=== $env ==="
+  ./scripts/deploy-env.sh $env output
+done
+```
 
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📝 License
 
@@ -399,18 +412,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- [Dockerswarm.rocks](https://dockerswarm.rocks/) - Docker Swarm setup documentation
-- [Hetzner Cloud](https://www.hetzner.com/cloud) - Cloud infrastructure provider
-- [Docker Swarm](https://docs.docker.com/engine/swarm/) - Container orchestration
-- [Traefik](https://traefik.io/) - Modern reverse proxy
-- [Swarmpit](https://swarmpit.io/) - Docker Swarm management UI
-- [Dozzle](https://dozzle.dev/) - Container log viewer
+- [Dockerswarm.rocks](https://dockerswarm.rocks/) - Docker Swarm best practices
+- [Hetzner Cloud](https://www.hetzner.com/cloud) - Affordable cloud infrastructure
+- [Traefik](https://traefik.io/) - Modern reverse proxy and load balancer
+- [Swarmpit](https://swarmpit.io/) - Docker Swarm management interface
+- [Dozzle](https://dozzle.dev/) - Real-time log viewer for Docker
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/vreshch/infrastructure/issues)
-- **Documentation**: See `docs/` directory
-- **Community**: [Discussions](https://github.com/vreshch/infrastructure/discussions)
+- **Documentation**: See `docs/` directory for detailed guides
+- **Issues**: Report bugs or request features via GitHub Issues
+- **Discussions**: Ask questions in GitHub Discussions
 
 ---
 
