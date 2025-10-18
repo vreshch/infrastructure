@@ -2,13 +2,15 @@
 
 # Multi-Environment Deployment Script
 # 
-# This script manages separate Terraform Cloud workspaces for dev/prod environments
+# This script manages Terraform deployments for multiple environments
+# Supports both local state and Terraform Cloud backends
 # 
 # Usage:
 #   ./scripts/deploy-env.sh dev     # Deploy to development environment
 #   ./scripts/deploy-env.sh prod    # Deploy to production environment
 #   ./scripts/deploy-env.sh dev destroy    # Destroy development environment
 #   ./scripts/deploy-env.sh prod destroy   # Destroy production environment
+#   ./scripts/deploy-env.sh dev plan --local  # Plan with local backend
 
 set -euo pipefail
 
@@ -22,7 +24,7 @@ NC='\033[0m' # No Color
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-INFRA_DIR="$PROJECT_DIR/infrastructure"
+TERRAFORM_DIR="$PROJECT_DIR/terraform"
 
 # Functions
 log_info() {
@@ -43,7 +45,7 @@ log_error() {
 }
 
 show_usage() {
-    echo "Usage: $0 <environment> [action]"
+    echo "Usage: $0 <environment> [action] [options]"
     echo ""
     echo "Environments:"
     echo "  dev     - Development environment (dev.example.com)"
@@ -54,11 +56,16 @@ show_usage() {
     echo "  apply    - Deploy infrastructure"
     echo "  destroy  - Destroy infrastructure"
     echo "  output   - Show terraform outputs"
+    echo "  validate - Validate configuration"
+    echo ""
+    echo "Options:"
+    echo "  --local  - Use local backend (default: Terraform Cloud)"
     echo ""
     echo "Examples:"
     echo "  $0 dev plan"
+    echo "  $0 dev plan --local"
     echo "  $0 prod apply"
-    echo "  $0 dev destroy"
+    echo "  $0 dev destroy --local"
 }
 
 # Validate arguments
@@ -69,6 +76,15 @@ fi
 
 ENVIRONMENT="$1"
 ACTION="${2:-plan}"
+BACKEND="${3:-cloud}"
+
+# Parse backend option
+if [[ "$ACTION" == "--local" ]]; then
+    BACKEND="local"
+    ACTION="plan"
+elif [[ "$BACKEND" == "--local" ]]; then
+    BACKEND="local"
+fi
 
 # Validate environment
 if [[ "$ENVIRONMENT" != "dev" && "$ENVIRONMENT" != "prod" ]]; then
@@ -76,8 +92,8 @@ if [[ "$ENVIRONMENT" != "dev" && "$ENVIRONMENT" != "prod" ]]; then
 fi
 
 # Validate action
-if [[ "$ACTION" != "plan" && "$ACTION" != "apply" && "$ACTION" != "destroy" && "$ACTION" != "output" ]]; then
-    log_error "Invalid action: $ACTION. Use 'plan', 'apply', 'destroy', or 'output'"
+if [[ "$ACTION" != "plan" && "$ACTION" != "apply" && "$ACTION" != "destroy" && "$ACTION" != "output" && "$ACTION" != "validate" ]]; then
+    log_error "Invalid action: $ACTION. Use 'plan', 'apply', 'destroy', 'output', or 'validate'"
 fi
 
 # Set environment-specific variables
@@ -90,15 +106,33 @@ VAR_FILE="terraform.$ENVIRONMENT.tfvars"
 
 log_info "🌍 Environment: $ENVIRONMENT"
 log_info "🏗️  Workspace: $WORKSPACE_NAME"
-log_info "📄 Variables: $VAR_FILE"
+log_info "�️  Backend: $BACKEND"
+log_info "�📄 Variables: $VAR_FILE"
 log_info "🎯 Action: $ACTION"
 
-# Change to infrastructure directory
-cd "$INFRA_DIR" || log_error "Cannot change to infrastructure directory: $INFRA_DIR"
+# Change to terraform directory
+cd "$TERRAFORM_DIR" || log_error "Cannot change to terraform directory: $TERRAFORM_DIR"
 
 # Check if var file exists
 if [[ ! -f "$VAR_FILE" ]]; then
-    log_error "Variable file not found: $VAR_FILE"
+    log_error "Variable file not found: $VAR_FILE
+    
+Please create it first using:
+  ./scripts/setup-env.sh $ENVIRONMENT"
+fi
+
+# Validate configuration if not just showing output
+if [[ "$ACTION" != "output" ]]; then
+    log_info "🔍 Validating configuration..."
+    if [[ -x "$SCRIPT_DIR/utils/validate-config.sh" ]]; then
+        if "$SCRIPT_DIR/utils/validate-config.sh" "$VAR_FILE"; then
+            log_success "Configuration validation passed"
+        else
+            log_error "Configuration validation failed. Please fix the errors above."
+        fi
+    else
+        log_warning "Validation script not found or not executable, skipping validation"
+    fi
 fi
 
 # Initialize Terraform if needed
@@ -107,14 +141,59 @@ if [[ ! -d ".terraform" ]]; then
     terraform init
 fi
 
-# Configure Terraform Cloud workspace
-log_info "⚙️  Configuring Terraform Cloud workspace..."
+# Configure backend based on selection
+if [[ "$BACKEND" == "local" ]]; then
+    log_info "⚙️  Using local backend..."
+    
+    # Create a backup of the original versions.tf
+    cp versions.tf versions.tf.backup
+    
+    # Create versions.tf with local backend
+    cat > versions.tf <<EOF
+terraform {
+  required_version = ">= 1.12"
 
-# Create a backup of the original versions.tf
-cp versions.tf versions.tf.original
+  required_providers {
+    hcloud = {
+      source  = "hetznercloud/hcloud"
+      version = "~> 1.45"
+    }
+    hetznerdns = {
+      source  = "timohirt/hetznerdns"
+      version = "~> 2.2"
+    }
+  }
+  
+  # Local backend - state stored in local file
+  backend "local" {
+    path = "terraform-$ENVIRONMENT.tfstate"
+  }
+}
 
-# Create a temporary versions.tf with the specific workspace
-cat > versions.tf <<EOF
+# Configure Hetzner provider
+provider "hcloud" {
+  token = var.hetzner_token
+}
+
+# Configure DNS provider
+provider "hetznerdns" {
+  apitoken = var.hetzner_dns_token
+}
+EOF
+    
+    # Re-initialize with local backend
+    log_info "🔄 Re-initializing with local backend..."
+    terraform init -reconfigure
+    
+else
+    # Terraform Cloud backend
+    log_info "⚙️  Configuring Terraform Cloud workspace..."
+    
+    # Create a backup of the original versions.tf
+    cp versions.tf versions.tf.backup
+    
+    # Create versions.tf with cloud backend
+    cat > versions.tf <<EOF
 terraform {
   required_version = ">= 1.12"
 
@@ -147,13 +226,20 @@ provider "hetznerdns" {
   apitoken = var.hetzner_dns_token
 }
 EOF
-
-# Re-initialize with the new workspace
-log_info "🔄 Re-initializing with workspace: $WORKSPACE_NAME"
-terraform init
+    
+    # Re-initialize with cloud backend
+    log_info "🔄 Re-initializing with workspace: $WORKSPACE_NAME"
+    terraform init
+fi
 
 # Execute the requested action
 case "$ACTION" in
+    "validate")
+        log_info "🔍 Validating Terraform configuration..."
+        terraform validate
+        log_success "Terraform configuration is valid"
+        ;;
+    
     "plan")
         log_info "📋 Running Terraform plan for $ENVIRONMENT environment..."
         terraform plan -var-file="$VAR_FILE"
@@ -206,8 +292,9 @@ case "$ACTION" in
 esac
 
 # Restore original versions.tf
-if [[ -f "versions.tf.original" ]]; then
-    mv versions.tf.original versions.tf
+if [[ -f "versions.tf.backup" ]]; then
+    mv versions.tf.backup versions.tf
+    log_info "Restored original versions.tf"
 fi
 
 # Clean up temporary files
