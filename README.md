@@ -25,8 +25,8 @@ Local/CI → Terraform → Hetzner Cloud
   ┌───────────┼───────────────┐
   │           │               │
 Development Staging      Production
-(CX22 4GB)  (CX32 8GB)   (CX42 16GB)
-€8/month    €17/month    €33/month
+(cx23 4GB)  (cx33 8GB)   (cx43 16GB)
+€2.99/mo    €4.99/mo     €8.99/mo
 ```
 
 **Included Services:**
@@ -225,19 +225,19 @@ See [docs/configuration.md](docs/configuration.md) for detailed explanations of 
 
 ### 💻 Supported Server Types
 
-| Type  | vCPU | RAM   | Storage | Price/month | Recommended For |
-|-------|------|-------|---------|-------------|-----------------|
-| CX22  | 2    | 4 GB  | 40 GB   | €8          | Development     |
-| CX32  | 4    | 8 GB  | 80 GB   | €17         | Staging         |
-| CX42  | 8    | 16 GB | 160 GB  | €33         | Production      |
-| CX52  | 16   | 32 GB | 320 GB  | €65         | High Traffic    |
+| Type  | vCPU | RAM   | Storage | Price/month (approx.) | Recommended For |
+|-------|------|-------|---------|-----------------------|-----------------|
+| cx23  | 2    | 4 GB  | 40 GB   | €2.99                 | Development     |
+| cx33  | 4    | 8 GB  | 80 GB   | €4.99                 | Staging         |
+| cx43  | 8    | 16 GB | 160 GB  | €8.99                 | Production      |
+| cx53  | 16   | 32 GB | 320 GB  | €16.99                | High Traffic    |
 
 **Additional costs:**
 - DNS Zones: Free
 - Snapshots: €0.01/GB per month (optional)
 - Backups: 20% of server price (optional)
 
-💡 **Tip**: Start with CX22 for development and scale up as needed.
+💡 **Tip**: Start with cx23 for development and scale up as needed. Prices shown are approximate and may vary based on account discounts.
 
 ## � Monitoring & Management
 
