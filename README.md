@@ -68,10 +68,10 @@ Before you begin, ensure you have:
 3. **Create environment configuration**
 
    ```bash
-   cp environments/dev.tfvars.example environments/dev.tfvars
+   cp configs/example.tfvars configs/dev.tfvars
    ```
 
-   Edit `environments/dev.tfvars` with your settings:
+   Edit `configs/dev.tfvars` with your settings:
 
    ```hcl
    environment           = "dev"
@@ -84,7 +84,7 @@ Before you begin, ensure you have:
 
    ```bash
    git checkout -b dev
-   git add environments/dev.tfvars
+   git add configs/dev.tfvars
    git commit -m "Add dev environment configuration"
    git push origin dev
    ```
@@ -104,26 +104,35 @@ Before you begin, ensure you have:
 ```
 .
 ├── .github/
-│   └── workflows/           # GitHub Actions workflows
-│       ├── deploy.yml       # Deploy infrastructure
-│       ├── plan.yml         # Preview changes
-│       └── destroy.yml      # Destroy infrastructure
-├── docs/
-│   ├── requirements.md      # Detailed requirements
-│   ├── github-actions-setup.md  # Setup guide
-│   └── setup-guide.md       # Manual setup (optional)
-├── infrastructure/
-│   ├── main.tf              # Main Terraform configuration
-│   ├── variables.tf         # Variable definitions
-│   ├── outputs.tf           # Output definitions
-│   └── modules/             # Terraform modules
-│       ├── compute/         # Server provisioning
-│       └── dns/             # DNS management
-├── environments/
-│   ├── dev.tfvars.example   # Development config template
-│   ├── staging.tfvars.example   # Staging config template
-│   └── prod.tfvars.example  # Production config template
-└── README.md                # This file
+│   └── workflows/              # GitHub Actions workflows
+│       ├── deploy.yml          # Deploy infrastructure
+│       ├── plan.yml            # Preview changes
+│       └── destroy.yml         # Destroy infrastructure
+├── terraform/                  # Terraform configuration
+│   ├── main.tf                 # Main infrastructure definition
+│   ├── variables.tf            # Variable definitions
+│   ├── outputs.tf              # Output definitions
+│   └── modules/                # Reusable modules
+│       ├── swarm-node/         # Docker Swarm node configuration
+│       └── dns-records/        # DNS record management
+├── configs/                    # Environment configurations
+│   ├── example.tfvars          # Configuration template
+│   ├── dev.tfvars              # Development environment
+│   ├── staging.tfvars          # Staging environment
+│   └── prod.tfvars             # Production environment
+├── scripts/                    # Automation scripts
+│   ├── setup.sh                # Environment setup
+│   ├── deploy.sh               # Deployment automation
+│   └── utils/                  # Utility scripts
+│       ├── generate-ssh-keys.sh    # SSH key generation
+│       └── generate-password.sh    # Password hash generation
+├── docs/                       # Documentation
+│   ├── README.md               # Documentation index
+│   ├── quickstart.md           # 5-minute setup guide
+│   ├── requirements.md         # Detailed requirements
+│   ├── github-actions.md       # GitHub Actions setup
+│   └── manual-deploy.md        # Manual deployment guide
+└── README.md                   # This file
 ```
 
 ## 🔧 Usage
@@ -132,12 +141,12 @@ Before you begin, ensure you have:
 
 ```bash
 # Create configuration
-cp environments/dev.tfvars environments/staging.tfvars
-vim environments/staging.tfvars
+cp configs/dev.tfvars configs/staging.tfvars
+vim configs/staging.tfvars
 
 # Deploy via branch
 git checkout -b staging
-git add environments/staging.tfvars
+git add configs/staging.tfvars
 git commit -m "Add staging environment"
 git push origin staging
 ```
@@ -146,10 +155,10 @@ git push origin staging
 
 ```bash
 # Modify configuration
-vim environments/prod.tfvars
+vim configs/prod.tfvars
 
 # Commit and push
-git add environments/prod.tfvars
+git add configs/prod.tfvars
 git commit -m "Update production server size"
 git push origin main
 ```
@@ -162,7 +171,137 @@ Use the GitHub Actions UI:
 3. Select the environment to destroy
 4. Type `destroy` to confirm
 
-## 💰 Pricing
+## 🛠️ Manual Deployment (Local Terraform)
+
+For local development and debugging, you can deploy infrastructure manually using Terraform. This repository includes automation scripts to simplify the process.
+
+### 🚀 Quick Start with Automation Scripts
+
+```bash
+# 1. Setup environment configuration
+./scripts/setup.sh dev  # Creates config from template
+
+# 2. Edit configuration with your values
+nano configs/dev.tfvars
+
+# 3. Deploy using automation script
+./scripts/deploy.sh dev plan   # Preview changes
+./scripts/deploy.sh dev apply  # Deploy infrastructure
+./scripts/deploy.sh dev output # View outputs
+```
+
+### 💻 Manual Terraform Commands
+
+```bash
+cd terraform/
+
+# Initialize and deploy
+terraform init
+terraform plan -var-file="../configs/dev.tfvars"
+terraform apply -var-file="../configs/dev.tfvars"
+
+# View deployment info
+terraform output
+```
+
+### 📋 Required Configuration
+
+Create `configs/dev.tfvars` with your settings:
+
+```hcl
+# Domain & DNS
+domain_name         = "dev.yourdomain.com"
+hetzner_dns_zone_id = "your-zone-id"
+hetzner_dns_token   = "your-dns-token"
+
+# Cloud & Server
+hetzner_token = "your-cloud-token"
+server_type   = "cx22"
+environment   = "development"
+
+# SSH Keys
+ssh_public_key  = "ssh-rsa AAAAB3NzaC1yc2E..."
+ssh_private_key = "-----BEGIN OPENSSH PRIVATE KEY-----\n..."
+
+# Services
+admin_password_hash = "base64-htpasswd-hash"
+traefik_host       = "traefik.dev.yourdomain.com"
+swarmpit_host      = "swarmpit.dev.yourdomain.com"
+dozzle_host        = "logs.dev.yourdomain.com"
+traefik_acme_email = "admin@yourdomain.com"
+```
+
+### 🔐 Generate Credentials
+
+```bash
+# Admin password hash (for Traefik basic auth)
+./scripts/utils/generate-password.sh yourpassword
+
+# Or manually:
+htpasswd -nbB admin yourpassword | cut -d: -f2 | base64 -w0
+
+# SSH keys for server access
+./scripts/utils/generate-ssh-keys.sh
+
+# Or manually:
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/deploy_rsa
+cat ~/.ssh/deploy_rsa.pub     # Public key
+cat ~/.ssh/deploy_rsa          # Private key
+```
+
+### 🌐 Multi-Environment Management
+
+```bash
+# Development
+./scripts/deploy.sh dev apply
+
+# Staging
+./scripts/deploy.sh staging apply
+
+# Production (requires confirmation)
+./scripts/deploy.sh prod apply
+```
+
+### 🗑️ Destroy Infrastructure
+
+```bash
+# Using automation script
+./scripts/deploy.sh dev destroy
+
+# Or manually
+cd terraform/
+terraform destroy -var-file="../configs/dev.tfvars"
+```
+
+### 📦 Included Scripts
+
+This repository includes the following automation scripts:
+
+- `scripts/setup.sh` - Environment setup automation
+- `scripts/deploy.sh` - Deployment automation with safety checks
+- `scripts/utils/generate-ssh-keys.sh` - SSH key pair generation
+- `scripts/utils/generate-password.sh` - Password hash generation
+- `configs/example.tfvars` - Configuration template
+
+### 🔧 Troubleshooting
+
+```bash
+# Terraform state issues
+cd terraform/
+rm -rf .terraform/ && terraform init
+
+# Check DNS resolution
+dig +short dev.yourdomain.com
+
+# Check SSL certificate generation (wait 5-10 minutes)
+ssh root@dev.yourdomain.com
+docker logs traefik
+
+# View all container logs
+docker service logs <service-name>
+```
+
+## Pricing
 
 | Environment | Server Type | vCPU | RAM   | Storage | Monthly Cost |
 |-------------|-------------|------|-------|---------|--------------|
@@ -183,7 +322,7 @@ Use the GitHub Actions UI:
 
 ### 📝 Environment Variables
 
-Each environment is configured via `.tfvars` files in the `environments/` directory:
+Each environment is configured via `.tfvars` files in the `configs/` directory:
 
 ```hcl
 # Required
@@ -196,6 +335,15 @@ location              = "nbg1"          # Hetzner datacenter location
 admin_email           = "admin@myapp.io" # Email for SSL certificates
 enable_backups        = false           # Enable automated backups
 ```
+
+### 💻 Supported Server Types
+
+| Type  | vCPU | RAM   | Storage | Price/month |
+|-------|------|-------|---------|-------------|
+| CX22  | 2    | 4 GB  | 40 GB   | €8          |
+| CX32  | 4    | 8 GB  | 80 GB   | €17         |
+| CX42  | 8    | 16 GB | 160 GB  | €33         |
+| CX52  | 16   | 32 GB | 320 GB  | €65         |
 
 ## 📊 Monitoring & Management
 
@@ -235,9 +383,11 @@ enable_backups        = false           # Enable automated backups
 
 Detailed documentation is available in the `docs/` directory:
 
+- **[README.md](docs/README.md)** - Documentation index
+- **[quickstart.md](docs/quickstart.md)** - 5-minute setup guide
 - **[requirements.md](docs/requirements.md)** - Architecture overview and requirements
-- **[github-actions-setup.md](docs/github-actions-setup.md)** - Complete setup guide
-- **[setup-guide.md](docs/setup-guide.md)** - Manual setup for local development
+- **[github-actions.md](docs/github-actions.md)** - Complete GitHub Actions setup
+- **[manual-deploy.md](docs/manual-deploy.md)** - Manual deployment guide
 
 ## 🤝 Contributing
 
@@ -249,7 +399,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- [Dockerswarm.rocks](https://dockerswarm.rocks/) - Docker Swarm Rocks - setup documentation
+- [Dockerswarm.rocks](https://dockerswarm.rocks/) - Docker Swarm setup documentation
 - [Hetzner Cloud](https://www.hetzner.com/cloud) - Cloud infrastructure provider
 - [Docker Swarm](https://docs.docker.com/engine/swarm/) - Container orchestration
 - [Traefik](https://traefik.io/) - Modern reverse proxy
