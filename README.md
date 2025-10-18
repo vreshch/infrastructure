@@ -75,9 +75,9 @@ Before you begin, ensure you have:
 
    ```hcl
    environment           = "dev"
-   server_type          = "cx22"
+   server_type           = "cx22"
    infrastructure_domain = "infra.yourdomain.com"
-   admin_email          = "admin@yourdomain.com"
+   admin_email           = "admin@yourdomain.com"
    ```
 
 4. **Deploy via GitHub Actions**
@@ -188,13 +188,13 @@ Each environment is configured via `.tfvars` files in the `environments/` direct
 ```hcl
 # Required
 environment           = "dev"           # Environment name
-server_type          = "cx22"          # Hetzner server type
+server_type           = "cx22"          # Hetzner server type
 infrastructure_domain = "infra.io"      # Domain for management tools
 
 # Optional
-location             = "nbg1"          # Hetzner datacenter location
-admin_email          = "admin@myapp.io" # Email for SSL certificates
-enable_backups       = false           # Enable automated backups
+location              = "nbg1"          # Hetzner datacenter location
+admin_email           = "admin@myapp.io" # Email for SSL certificates
+enable_backups        = false           # Enable automated backups
 ```
 
 ## 📊 Monitoring & Management
