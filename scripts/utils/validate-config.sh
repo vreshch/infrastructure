@@ -186,7 +186,7 @@ validate_required_field "$CONFIG_FILE" "server_name" "Server name"
 
 if validate_required_field "$CONFIG_FILE" "server_type" "Server type"; then
     SERVER_TYPE=$(grep "^server_type" "$CONFIG_FILE" | cut -d'"' -f2)
-    VALID_TYPES=("cx11" "cx21" "cx22" "cx31" "cx32" "cx41" "cx42" "cx51" "cx52")
+    VALID_TYPES=("cx11" "cx21" "cx22" "cx23" "cx31" "cx32" "cx33" "cx41" "cx42" "cx43" "cx51" "cx52" "cx53")
     if [[ ! " ${VALID_TYPES[@]} " =~ " ${SERVER_TYPE} " ]]; then
         log_error "Invalid server type: $SERVER_TYPE"
     else
@@ -211,9 +211,12 @@ echo ""
 # ============================================================================
 echo -e "${BLUE}━━━ SSH Configuration ━━━${NC}"
 
-# Extract SSH keys (they are multi-line in heredoc format)
+# Extract SSH keys (support both heredoc and simple string formats)
 if grep -q "^ssh_public_key = <<-EOT" "$CONFIG_FILE"; then
     SSH_PUBLIC=$(sed -n '/^ssh_public_key = <<-EOT/,/^EOT/p' "$CONFIG_FILE" | sed '1d;$d')
+    validate_ssh_key "$SSH_PUBLIC" "Public Key"
+elif grep -q "^ssh_public_key = \"" "$CONFIG_FILE"; then
+    SSH_PUBLIC=$(grep "^ssh_public_key = \"" "$CONFIG_FILE" | cut -d'"' -f2)
     validate_ssh_key "$SSH_PUBLIC" "Public Key"
 else
     log_error "SSH public key is not configured"
@@ -222,6 +225,9 @@ fi
 if grep -q "^ssh_private_key = <<-EOT" "$CONFIG_FILE"; then
     SSH_PRIVATE=$(sed -n '/^ssh_private_key = <<-EOT/,/^EOT/p' "$CONFIG_FILE" | sed '1d;$d')
     validate_ssh_key "$SSH_PRIVATE" "Private Key"
+elif grep -q "^ssh_private_key = <<-EOT" "$CONFIG_FILE"; then
+    # Private keys should be in heredoc format
+    log_check "SSH private key is configured"
 else
     log_error "SSH private key is not configured"
 fi
@@ -235,7 +241,9 @@ echo -e "${BLUE}━━━ Authentication ━━━${NC}"
 
 if validate_required_field "$CONFIG_FILE" "admin_password_hash" "Admin password hash"; then
     HASH=$(grep "^admin_password_hash" "$CONFIG_FILE" | cut -d'"' -f2)
-    if [[ ! "$HASH" =~ \$2[ayb]\$ ]]; then
+    # Decode base64 to check bcrypt format
+    DECODED_HASH=$(echo "$HASH" | base64 -d 2>/dev/null || echo "")
+    if [[ ! "$DECODED_HASH" =~ \$2[ayb]\$ ]]; then
         log_error "Admin password hash is not in bcrypt format"
     else
         log_check "Admin password hash format is valid"

@@ -53,10 +53,37 @@ Development Staging      Production
    cd infrastructure
    ```
 
-2. **Generate SSH keys and password hash**
+2. **Run the interactive setup script**
 
    ```bash
-   # Generate SSH keys for server access
+   # Single command that collects all configuration
+   ./scripts/setup-fill-tfvars.sh prod
+   ```
+   
+   The script will prompt for:
+   - Domain name and subdomains
+   - Hetzner Cloud & DNS API tokens ([Get tokens](https://console.hetzner.com/projects))
+   - DNS Zone ID ([Find in DNS console](https://dns.hetzner.com/))
+   - Server configuration (name, type, location)
+   - SSH key paths
+   - Admin password (or auto-generate)
+   
+   It automatically:
+   - Validates all inputs
+   - Generates bcrypt password hash
+   - Base64-encodes credentials for Terraform
+   - Creates `terraform/terraform.prod.tfvars` with secure permissions
+
+3. **Deploy infrastructure**
+
+   ```bash
+   cd terraform
+   terraform init
+   terraform plan -var-file="terraform.prod.tfvars"
+   terraform apply -var-file="terraform.prod.tfvars"
+   ```
+
+4. **Access your services** (after 5-10 minutes for DNS + SSL) for server access
    ./scripts/utils/generate-ssh-keys.sh deploy ed25519
    
    # Generate admin password hash for Traefik/Swarmpit
@@ -98,7 +125,36 @@ Development Staging      Production
    - **Swarmpit UI**: `https://swarmpit.yourdomain.com`
    - **Dozzle Logs**: `https://logs.yourdomain.com`
 
-   Login credentials: `admin` / `<your-password>`
+4. **Access your services** (after 5-10 minutes for DNS + SSL)
+
+   - **Traefik Dashboard**: `https://admin.yourdomain.com`
+   - **Swarmpit UI**: `https://swarmpit.yourdomain.com`
+   - **Dozzle Logs**: `https://logs.yourdomain.com`
+
+   Login credentials: `admin` / `<your-generated-password>`
+   
+   **Note**: SSL certificates are issued automatically but require DNS to propagate first (5-10 min).
+
+### Alternative: Step-by-Step Setup
+
+<details>
+<summary>Click to expand manual setup steps</summary>
+
+```bash
+# 1. Generate SSH keys
+./scripts/utils/generate-ssh-keys.sh deploy ed25519
+
+# 2. Setup configuration interactively
+./scripts/setup-env.sh prod
+
+# 3. Validate
+./scripts/utils/validate-config.sh terraform/terraform.prod.tfvars
+
+# 4. Deploy
+./scripts/deploy-env.sh prod apply --local
+```
+
+</details>
 
 ## 📁 Repository Structure
 

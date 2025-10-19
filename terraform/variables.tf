@@ -58,7 +58,7 @@ variable "server_type" {
   default     = "cx22"
   validation {
     condition = contains([
-      "cx11", "cx21", "cx22", "cx31", "cx32", "cx41", "cx42", "cx51", "cx52"
+      "cx11", "cx21", "cx22", "cx23", "cx31", "cx32", "cx33", "cx41", "cx42", "cx43", "cx51", "cx52", "cx53"
     ], var.server_type)
     error_message = "Server type must be a valid Hetzner server type."
   }
